@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Blank Canvas</title>
+  <style>
+    @font-face {
+      font-family: "Lane Narrow";
+      src: url("LaneNarrow-rqx.ttf") format("truetype");
+      font-style: normal;
+      font-weight: 100 900;
+      font-display: swap;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Lane Narrow", sans-serif;
+      cursor: url("fish cursor.png") 48 14, auto;
+    }
+
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      background:
+        url("bridge.png") center / cover no-repeat,
+        url("fisher.png") calc(50% + 40px) center / auto 96vh no-repeat,
+        url("floor.png") center calc(100% + 31.36px) / 100% auto no-repeat,
+        linear-gradient(rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.18)),
+        url("grey background.png") center / cover no-repeat;
+    }
+
+    .key {
+      position: fixed;
+      top: 50%;
+      width: min(62.92vh, 514.8px);
+      transform: translateY(-50%);
+      z-index: 1;
+      transition: filter 100ms ease;
+    }
+
+    .key.is-pressed {
+      filter: sepia(1) saturate(8) hue-rotate(-12deg) brightness(1);
+    }
+
+    .key-left {
+      left: calc(112px - min(31.46vh, 257.4px) + 30vw);
+    }
+
+    .key-right {
+      right: calc(88px - min(31.46vh, 257.4px) + 30vw);
+    }
+
+    .key-sequence {
+      position: fixed;
+      top: 18vh;
+      left: 50%;
+      display: flex;
+      gap: 4px;
+      transform: translateX(-50%);
+      z-index: 3;
+    }
+
+    .fish-caught {
+      position: fixed;
+      top: 28px;
+      right: 28px;
+      z-index: 4;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 7.537px 10.55px;
+      border-radius: 6.029px;
+      background: #fff;
+      color: #000;
+      font: 500 18.991px "Lane Narrow", sans-serif;
+      letter-spacing: 1.055px;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .fish-caught-icon {
+      position: relative;
+      display: block;
+      width: 48px;
+      height: 24px;
+      overflow: hidden;
+    }
+
+    .fish-caught-icon img {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 230px;
+      max-width: none;
+      transform: translate(-50%, -50%);
+    }
+
+    body.game-failed .fish-caught {
+      display: none;
+    }
+
+    .sequence-key {
+      position: relative;
+      width: min(4.2vh, 48px);
+      aspect-ratio: 1;
+      overflow: hidden;
+      transition: opacity 120ms ease, filter 120ms ease;
+      animation: key-pop 250ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+    }
+
+    .sequence-key.is-current {
+      filter: drop-shadow(0 0 5px #ffd700);
+    }
+
+    .sequence-key img {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 500%;
+      max-width: none;
+      transform: translate(-50%, -50%);
+      transition: filter 120ms ease;
+    }
+
+    .sequence-key.is-complete img {
+      filter: brightness(0) saturate(100%) invert(48%) sepia(100%) saturate(459%) hue-rotate(73deg) brightness(96%) contrast(104%);
+    }
+
+    .key-sequence.is-failing .sequence-key img {
+      animation: key-fail-flash 200ms steps(1, end) 4;
+    }
+
+    @keyframes key-fail-flash {
+      0%, 49% {
+        filter: brightness(0) saturate(100%) invert(14%) sepia(98%) saturate(6724%) hue-rotate(4deg) brightness(100%) contrast(120%);
+      }
+      50%, 100% {
+        filter: none;
+      }
+    }
+
+    @keyframes key-pop {
+      from {
+        opacity: 0;
+        transform: translateY(12px) scale(0.6);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    .water-frame {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .water-layer {
+      position: absolute;
+      inset: -26% -2% -2%;
+      width: 104%;
+      height: 128%;
+      object-fit: cover;
+      transform-origin: center;
+      animation:
+        water-wobble 3s ease-in-out infinite alternate,
+        water-bobble 1.8s ease-in-out infinite;
+      translate: 0 0;
+    }
+
+    .fish {
+      position: fixed;
+      top: 87%;
+      left: 0;
+      height: min(65vh, 650px);
+      width: auto;
+      --fish-swim-duration: 13.6s;
+      transform: translate(-100%, -50%);
+      transition: opacity 100ms ease;
+      animation:
+        swim-across var(--fish-swim-duration) linear 1 forwards,
+        fish-bob 1.2s ease-in-out infinite,
+        fish-wobble 1.6s ease-in-out infinite alternate;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .fish.is-hidden {
+      opacity: 0;
+      animation-play-state: paused;
+    }
+
+    .cursor-fish {
+      position: fixed;
+      width: min(10vw, 110px);
+      height: auto;
+      pointer-events: none;
+      z-index: 11;
+      animation: cursor-fish-trail 700ms ease-out forwards;
+    }
+
+    .start-fish-mark {
+      position: fixed;
+      width: min(23vw, 253px);
+      height: auto;
+      transform: translate(-50%, -50%);
+      filter: brightness(0) invert(1);
+      pointer-events: none;
+      z-index: 12;
+    }
+
+    .game-border {
+      position: fixed;
+      inset: 0;
+      display: none;
+      width: 100vw;
+      height: 100vh;
+      opacity: 1;
+      pointer-events: none;
+      z-index: 13;
+      transform: scale(1.008);
+      transform-origin: center;
+      animation: border-boil 1.2s steps(2, end) infinite;
+    }
+
+    @keyframes border-boil {
+      0%, 100% {
+        transform: translate(0, 0) scale(1.008);
+      }
+      25% {
+        transform: translate(1px, -1px) scale(1.008) rotate(0.04deg);
+      }
+      50% {
+        transform: translate(-1px, 1px) scale(1.008) rotate(-0.04deg);
+      }
+      75% {
+        transform: translate(1px, 1px) scale(1.008) rotate(0.03deg);
+      }
+    }
+
+    .start-screen:not(.is-dismissed) ~ .game-border {
+      display: block;
+    }
+
+    body.game-failed .game-border {
+      filter: brightness(0) invert(1);
+      opacity: 1;
+    }
+
+    body:not(.game-started) .water-layer,
+    body:not(.game-started) .fish {
+      animation-play-state: paused;
+    }
+
+    .start-screen {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      background: rgba(135, 206, 250, 0.34);
+      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(16px);
+      z-index: 10;
+      opacity: 1;
+      visibility: visible;
+      transition: opacity 250ms ease, visibility 0s linear 250ms;
+    }
+
+    .start-content {
+      display: grid;
+      justify-items: center;
+      gap: 24px;
+    }
+
+    .game-title {
+      position: absolute;
+      top: -4vh;
+      left: 50%;
+      width: min(80vw, 600px);
+      height: auto;
+      transform: translateX(-50%);
+      transform-origin: center;
+      animation: title-wiggle 1.2s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    .start-screen:not(.show-instructions):not(.is-failed) .game-title {
+      top: -4vh;
+      width: min(160vw, 1200px);
+    }
+
+    @keyframes title-wiggle {
+      0%, 100% {
+        transform: translateX(-50%) rotate(0deg);
+      }
+      20%, 60% {
+        transform: translateX(-50%) rotate(-2deg);
+      }
+      40%, 80% {
+        transform: translateX(-50%) rotate(2deg);
+      }
+    }
+
+    .instruction-screen {
+      display: none;
+      box-sizing: border-box;
+      width: min(90vw, 700px);
+      min-height: min(68vh, 520px);
+      padding: clamp(24px, 5vw, 48px);
+      border-radius: 24px;
+      background: rgba(255, 255, 255, 0.94);
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.24);
+      color: #102333;
+      text-align: center;
+      font-family: "Lane Narrow", sans-serif;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .instruction-screen h1 {
+      margin: 0;
+      font-size: clamp(28px, 5vw, 44px);
+    }
+
+    .instruction-screen p {
+      max-width: 32ch;
+      margin: 0;
+      font-size: clamp(18px, 2.4vw, 24px);
+      line-height: 1.5;
+    }
+
+    .start-screen.show-instructions .start-content {
+      display: none;
+    }
+
+    .start-screen.show-instructions .instruction-screen {
+      display: flex;
+    }
+
+    .start-screen.is-failed {
+      background: #000;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+
+    .start-screen.is-failed .instruction-screen {
+      display: none;
+    }
+
+    .start-screen.is-failed .game-title {
+      display: none;
+    }
+
+    .start-screen.is-failed .start-button {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: #000;
+      color: #fff;
+    }
+
+    .start-screen.is-failed .start-button:hover {
+      transform: translate(-50%, -50%) scale(1.06);
+      animation: play-again-gold-flash 500ms steps(1, end) infinite;
+    }
+
+    .start-screen.is-failed .start-button:focus-visible {
+      outline-color: #fff;
+    }
+
+    .restart-button {
+      display: none;
+      border: 0;
+      background: transparent;
+      color: #fff;
+      font: 500 16px "Lane Narrow", sans-serif;
+      letter-spacing: 2px;
+      text-decoration: underline;
+      cursor: url("fish cursor.png") 48 14, auto;
+      transition: letter-spacing 180ms ease;
+    }
+
+    .start-screen.is-failed .restart-button {
+      display: block;
+      position: absolute;
+      top: calc(50% + 128px);
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    .start-screen.is-failed .restart-button:hover {
+      color: #ffd700;
+    }
+
+    .start-screen.is-failed .restart-button:focus-visible {
+      outline: 2px solid #fff;
+      outline-offset: 4px;
+    }
+
+    .failure-summary {
+      display: none;
+      position: absolute;
+      top: calc(50% + 58px);
+      left: 50%;
+      transform: translateX(-50%);
+      color: #fff;
+      font: 500 20px "Lane Narrow", sans-serif;
+      letter-spacing: 1px;
+      white-space: nowrap;
+    }
+
+    .start-screen.is-failed .failure-summary {
+      display: block;
+    }
+
+    .high-score-summary {
+      display: none;
+      position: absolute;
+      top: calc(50% + 88px);
+      left: 50%;
+      transform: translateX(-50%);
+      color: #fff;
+      font: 500 20px "Lane Narrow", sans-serif;
+      letter-spacing: 1px;
+      white-space: nowrap;
+    }
+
+    .start-screen.is-failed .high-score-summary {
+      display: block;
+    }
+
+    @keyframes play-again-gold-flash {
+      0%, 49% {
+        background: #ffd700;
+        color: #000;
+      }
+      50%, 100% {
+        background: #000;
+        color: #fff;
+      }
+    }
+
+    .start-screen.is-dismissed {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .start-button {
+      padding: 15.714px 40px;
+      border: 0;
+      border-radius: 11.429px;
+      background: #000;
+      color: #fff;
+      box-shadow: 0 5.714px 20px rgba(0, 0, 0, 0.35);
+      font: 400 clamp(20px, 3.571vw, 37.143px) "Lane Narrow", sans-serif;
+      letter-spacing: 8.1648px;
+      cursor: url("fish cursor.png") 48 14, auto;
+      transition: transform 150ms ease, background-color 150ms ease, color 150ms ease, letter-spacing 180ms ease;
+    }
+
+    button:hover {
+      letter-spacing: 0.3em;
+    }
+
+    .start-button:hover {
+      background: #fff;
+      color: #000;
+      transform: scale(1.06);
+    }
+
+    .start-button:focus-visible {
+      outline: 4px solid #fff;
+      outline-offset: 6px;
+    }
+
+    .start-screen:not(.is-failed) .start-button {
+      box-shadow:
+        0 5.714px 20px rgba(0, 0, 0, 0.35),
+        0 0 32px 18px rgba(135, 206, 250, 0.55);
+    }
+
+    @keyframes water-wobble {
+      from {
+        transform: rotate(-2deg) scale(1.04);
+      }
+      to {
+        transform: rotate(2deg) scale(1.04);
+      }
+    }
+
+    @keyframes water-bobble {
+      0%, 100% {
+        translate: 0 0;
+      }
+      50% {
+        translate: 0 -12px;
+      }
+    }
+
+    @keyframes fish-bob {
+      0%, 100% {
+        top: calc(87% - 6px);
+      }
+      50% {
+        top: calc(87% + 6px);
+      }
+    }
+
+    @keyframes fish-wobble {
+      from {
+        rotate: -4deg;
+      }
+      to {
+        rotate: 4deg;
+      }
+    }
+
+    @keyframes swim-across {
+      to {
+        left: 100%;
+        transform: translate(0, -50%);
+      }
+    }
+
+    @keyframes cursor-fish-trail {
+      from {
+        opacity: 0.8;
+        transform: translate(-50%, -50%) rotate(var(--angle, 0deg)) scale(0.8);
+      }
+      to {
+        opacity: 0;
+        transform: translate(-50%, -50%) rotate(var(--angle, 0deg)) scale(0.35);
+      }
+    }
+
+  </style>
+</head>
+<body>
+  <canvas></canvas>
+  <div class="water-frame">
+    <img class="water-layer" src="water.png" alt="">
+  </div>
+  <img class="key key-left" src="s key.png" alt="S key">
+  <img class="key key-right" src="f key.png" alt="F key">
+  <div class="key-sequence" role="group" aria-label="Random S and F key combination"></div>
+  <div class="fish-caught" aria-live="polite">
+    <span class="fish-caught-icon" aria-hidden="true"><img src="fish.png" alt=""></span>
+    <span id="fish-caught-count">0</span>
+  </div>
+  <img class="fish" src="fish.png" alt="">
+  <div class="start-screen">
+    <div class="start-content">
+      <button class="start-button" type="button">start</button>
+      <div class="failure-summary" role="status">fish caught: <span id="failure-fish-count">0</span></div>
+      <div class="high-score-summary" role="status">high score: <span id="high-score">0</span></div>
+      <button class="restart-button" type="button">restart</button>
+    </div>
+    <section class="instruction-screen" aria-labelledby="instructions-title">
+      <h1 id="instructions-title">How to play</h1>
+      <p>Watch the S and F keys at the top. Press them in the same order. Correct keys turn green. Press the wrong key or let the fish swim away, and the game ends. Catch as many fish as you can!</p>
+      <button class="start-button continue-button" type="button">continue</button>
+    </section>
+    <img class="game-title" src="title.png" alt="F and S game title">
+  </div>
+  <img class="game-border" src="border.png" alt="" aria-hidden="true">
+  <audio id="theme-music" autoplay loop preload="auto" aria-hidden="true">
+    <source src="theme music.mp3" type="audio/mpeg">
+  </audio>
+  <script>
+    const sKeyImage = document.querySelector(".key-left");
+    const fKeyImage = document.querySelector(".key-right");
+    const fishImage = document.querySelector(".fish");
+    const keySequenceDisplay = document.querySelector(".key-sequence");
+    const fishCaughtCountDisplay = document.querySelector("#fish-caught-count");
+    const failureFishCountDisplay = document.querySelector("#failure-fish-count");
+    const highScoreDisplay = document.querySelector("#high-score");
+    const highScoreStorageKey = "fish-catching-high-score";
+    const startScreen = document.querySelector(".start-screen");
+    const startButton = document.querySelector(".start-button");
+    const continueButton = document.querySelector(".continue-button");
+    const restartButton = document.querySelector(".restart-button");
+    const themeMusic = document.querySelector("#theme-music");
+    const initialFishSwimDuration = 12.5;
+    const fishSpeedupPerCatch = 0.5;
+    const fishSpeedupInterval = 5;
+    const fishMilestoneSpeedup = 0.5;
+    const minimumFishSwimDuration = 4;
+    const activeKeys = new Set();
+    const audioContext = window.AudioContext ? new AudioContext() : null;
+    let keySequence = [];
+    let sequenceProgress = 0;
+    let isCompleting = false;
+    let isRevealing = true;
+    let gameStarted = false;
+    let fishCaughtCount = 0;
+    let lastTrailX = 0;
+    let lastTrailY = 0;
+    let hasTrailPoint = false;
+    let bubbleNoiseBuffer = null;
+    let bubbleSoundTimer = null;
+    let isBubbleSoundHovering = false;
+    let isThemeMusicUnavailable = false;
+    const startFishMarks = new Set();
+
+    function startThemeMusic() {
+      if (isThemeMusicUnavailable || !themeMusic.paused) return;
+
+      const playback = themeMusic.play();
+      if (playback) {
+        playback.catch(error => {
+          if (error.name === "NotAllowedError") return;
+
+          isThemeMusicUnavailable = true;
+          console.error("Could not play theme music.", error);
+        });
+      }
+    }
+
+    function loadHighScore() {
+      try {
+        const storedScore = window.localStorage.getItem(highScoreStorageKey);
+        if (storedScore === null) return 0;
+
+        const parsedScore = Number(storedScore);
+        if (!Number.isSafeInteger(parsedScore) || parsedScore < 0) {
+          console.error("Saved high score is invalid; ignoring it.");
+          return 0;
+        }
+
+        return parsedScore;
+      } catch (error) {
+        console.error("Could not load the saved high score.", error);
+        return 0;
+      }
+    }
+
+    let highScore = loadHighScore();
+    highScoreDisplay.textContent = String(highScore);
+
+    function recordHighScore() {
+      if (fishCaughtCount <= highScore) return;
+
+      highScore = fishCaughtCount;
+      highScoreDisplay.textContent = String(highScore);
+      try {
+        window.localStorage.setItem(highScoreStorageKey, String(highScore));
+      } catch (error) {
+        console.error("Could not save the high score.", error);
+      }
+    }
+
+    function enableSequenceBubbleSound() {
+      if (!audioContext) {
+        console.error("Web Audio is not supported; sequence bubble sounds are unavailable.");
+        return Promise.resolve();
+      }
+
+      if (audioContext.state === "suspended") {
+        return audioContext.resume().catch(error => {
+          console.error("Could not enable sequence bubble sounds.", error);
+        });
+      }
+
+      return Promise.resolve();
+    }
+
+    function playCorrectKeySound() {
+      if (!audioContext) {
+        console.error("Web Audio is not supported; correct-key ding is unavailable.");
+        return;
+      }
+
+      const playDing = () => {
+        const now = audioContext.currentTime;
+        const ding = audioContext.createOscillator();
+        const volume = audioContext.createGain();
+        ding.type = "sine";
+        ding.frequency.setValueAtTime(880, now);
+        ding.frequency.exponentialRampToValueAtTime(660, now + 0.22);
+        volume.gain.setValueAtTime(0.0001, now);
+        volume.gain.exponentialRampToValueAtTime(0.12, now + 0.008);
+        volume.gain.exponentialRampToValueAtTime(0.0001, now + 0.28);
+        ding.connect(volume);
+        volume.connect(audioContext.destination);
+        ding.start(now);
+        ding.stop(now + 0.3);
+      };
+
+      if (audioContext.state === "running") {
+        playDing();
+      } else {
+        audioContext.resume().then(playDing).catch(error => {
+          console.error("Could not play correct-key ding.", error);
+        });
+      }
+    }
+
+    function playBubbleSound() {
+      if (!audioContext || audioContext.state !== "running") return;
+
+      const now = audioContext.currentTime;
+      const duration = 0.16 + Math.random() * 0.12;
+      const startingFrequency = 90 + Math.random() * 90;
+      const bubble = audioContext.createOscillator();
+      const volume = audioContext.createGain();
+      bubble.type = "triangle";
+      bubble.frequency.setValueAtTime(startingFrequency, now);
+      bubble.frequency.exponentialRampToValueAtTime(300 + Math.random() * 220, now + duration * 0.28);
+      bubble.frequency.exponentialRampToValueAtTime(110 + Math.random() * 90, now + duration);
+      volume.gain.setValueAtTime(0.0001, now);
+      volume.gain.exponentialRampToValueAtTime(0.055, now + 0.01);
+      volume.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+      bubble.connect(volume);
+      volume.connect(audioContext.destination);
+      bubble.start(now);
+      bubble.stop(now + duration + 0.01);
+
+      if (!bubbleNoiseBuffer) {
+        const noiseLength = Math.ceil(audioContext.sampleRate * 0.3);
+        bubbleNoiseBuffer = audioContext.createBuffer(1, noiseLength, audioContext.sampleRate);
+        const noiseData = bubbleNoiseBuffer.getChannelData(0);
+        for (let index = 0; index < noiseLength; index++) {
+          noiseData[index] = (Math.random() * 2 - 1) * (1 - index / noiseLength);
+        }
+      }
+
+      const splash = audioContext.createBufferSource();
+      const lowPass = audioContext.createBiquadFilter();
+      const splashVolume = audioContext.createGain();
+      splash.buffer = bubbleNoiseBuffer;
+      lowPass.type = "lowpass";
+      lowPass.frequency.setValueAtTime(1000 + Math.random() * 500, now);
+      lowPass.frequency.exponentialRampToValueAtTime(350, now + duration);
+      splashVolume.gain.setValueAtTime(0.0001, now);
+      splashVolume.gain.exponentialRampToValueAtTime(0.025, now + 0.008);
+      splashVolume.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+      splash.connect(lowPass);
+      lowPass.connect(splashVolume);
+      splashVolume.connect(audioContext.destination);
+      splash.start(now, Math.random() * 0.02, duration);
+    }
+
+    function playFailBuzzSound() {
+      if (!audioContext) {
+        console.error("Web Audio is not supported; fail buzz sound is unavailable.");
+        return;
+      }
+
+      const playBuzz = () => {
+        const now = audioContext.currentTime;
+        const buzz = audioContext.createOscillator();
+        const lowPass = audioContext.createBiquadFilter();
+        const volume = audioContext.createGain();
+        buzz.type = "sawtooth";
+        buzz.frequency.setValueAtTime(125, now);
+        buzz.frequency.exponentialRampToValueAtTime(82, now + 0.45);
+        lowPass.type = "lowpass";
+        lowPass.frequency.setValueAtTime(700, now);
+        lowPass.Q.setValueAtTime(1.2, now);
+        volume.gain.setValueAtTime(0.0001, now);
+        volume.gain.exponentialRampToValueAtTime(0.16, now + 0.01);
+        volume.gain.exponentialRampToValueAtTime(0.0001, now + 0.5);
+        buzz.connect(lowPass);
+        lowPass.connect(volume);
+        volume.connect(audioContext.destination);
+        buzz.start(now);
+        buzz.stop(now + 0.52);
+      };
+
+      if (audioContext.state === "running") {
+        playBuzz();
+      } else {
+        audioContext.resume().then(playBuzz).catch(error => {
+          console.error("Could not enable fail buzz sound.", error);
+        });
+      }
+    }
+
+    function scheduleBubbleSound() {
+      if (!isBubbleSoundHovering) return;
+      playBubbleSound();
+      bubbleSoundTimer = window.setTimeout(scheduleBubbleSound, 90 + Math.random() * 170);
+    }
+
+    function startBubbleSoundLoop() {
+      if (isBubbleSoundHovering || startScreen.classList.contains("is-dismissed")) return;
+      isBubbleSoundHovering = true;
+
+      if (!audioContext) {
+        console.error("Web Audio is not supported; hover bubble sounds are unavailable.");
+        return;
+      }
+
+      const beginLoop = () => {
+        if (!isBubbleSoundHovering) return;
+        scheduleBubbleSound();
+      };
+
+      if (audioContext.state === "running") {
+        beginLoop();
+      } else {
+        audioContext.resume().then(beginLoop).catch(error => {
+          isBubbleSoundHovering = false;
+          console.error("Could not enable hover bubble sounds.", error);
+        });
+      }
+    }
+
+    function stopBubbleSoundLoop() {
+      isBubbleSoundHovering = false;
+      if (bubbleSoundTimer !== null) {
+        window.clearTimeout(bubbleSoundTimer);
+        bubbleSoundTimer = null;
+      }
+    }
+
+    function restartFishAnimation() {
+      fishImage.style.animation = "none";
+      void fishImage.offsetHeight;
+      fishImage.style.removeProperty("animation");
+    }
+
+    function updateFishSwimSpeed() {
+      const milestones = Math.floor(fishCaughtCount / fishSpeedupInterval);
+      const duration = Math.max(
+        minimumFishSwimDuration,
+        initialFishSwimDuration
+          - fishCaughtCount * fishSpeedupPerCatch
+          - milestones * fishMilestoneSpeedup
+      );
+      fishImage.style.setProperty("--fish-swim-duration", `${duration}s`);
+    }
+
+    function updateSequenceProgress() {
+      Array.from(keySequenceDisplay.children).forEach((keyImage, index) => {
+        keyImage.classList.toggle("is-complete", index < sequenceProgress);
+        keyImage.classList.toggle("is-current", index === sequenceProgress);
+      });
+    }
+
+    function createKeySequence() {
+      const length = Math.floor(Math.random() * 11) + 1;
+      keySequence = Array.from({ length }, () => Math.random() < 0.5 ? "s" : "f");
+      sequenceProgress = 0;
+      keySequenceDisplay.replaceChildren();
+
+      keySequence.forEach((key, index) => {
+        const frame = document.createElement("div");
+        const image = document.createElement("img");
+        frame.className = "sequence-key";
+        frame.style.animationDelay = `${index * 0.25}s`;
+        frame.addEventListener("animationstart", playBubbleSound, { once: true });
+        image.src = `${key} key.png`;
+        image.alt = `${key.toUpperCase()} key`;
+        frame.appendChild(image);
+        keySequenceDisplay.appendChild(frame);
+      });
+
+      updateSequenceProgress();
+      isRevealing = true;
+      fishImage.classList.add("is-hidden");
+      restartFishAnimation();
+
+      window.setTimeout(() => {
+        isRevealing = false;
+        fishImage.classList.remove("is-hidden");
+      }, keySequence.length * 250);
+    }
+
+    function completeKeySequence() {
+      isCompleting = true;
+      fishImage.classList.add("is-hidden");
+      fishCaughtCount++;
+      fishCaughtCountDisplay.textContent = String(fishCaughtCount);
+      recordHighScore();
+      updateFishSwimSpeed();
+      restartFishAnimation();
+
+      window.setTimeout(() => {
+        isCompleting = false;
+        enableSequenceBubbleSound().then(createKeySequence);
+      }, 350);
+    }
+
+    function showFailureScreen() {
+      gameStarted = false;
+      document.body.classList.remove("game-started");
+      startScreen.classList.add("is-failed");
+      startScreen.classList.remove("is-dismissed");
+      startButton.textContent = "play again";
+      document.body.classList.add("game-failed");
+    }
+
+    function failSequence() {
+      gameStarted = false;
+      isCompleting = true;
+      document.body.classList.remove("game-started");
+      keySequenceDisplay.classList.add("is-failing");
+      playFailBuzzSound();
+
+      window.setTimeout(() => {
+        keySequenceDisplay.classList.remove("is-failing");
+        isCompleting = false;
+        showFailureScreen();
+      }, 850);
+      failureFishCountDisplay.textContent = String(fishCaughtCount);
+    }
+
+    function handleSequenceKey(key) {
+      if (isCompleting || isRevealing) return;
+
+      if (key !== keySequence[sequenceProgress]) {
+        failSequence();
+        return;
+      }
+
+      playCorrectKeySound();
+      sequenceProgress++;
+      updateSequenceProgress();
+      if (sequenceProgress === keySequence.length) {
+        completeKeySequence();
+      }
+    }
+
+    function startGame() {
+      stopBubbleSoundLoop();
+      clearStartFishMarks();
+      gameStarted = true;
+      isCompleting = false;
+      activeKeys.clear();
+      sKeyImage.classList.remove("is-pressed");
+      fKeyImage.classList.remove("is-pressed");
+      fishCaughtCount = 0;
+      updateFishSwimSpeed();
+      fishCaughtCountDisplay.textContent = "0";
+      failureFishCountDisplay.textContent = "0";
+      startScreen.classList.remove("is-failed");
+      startScreen.classList.remove("show-instructions");
+      document.body.classList.remove("game-failed");
+      document.body.classList.add("game-started");
+      startScreen.classList.add("is-dismissed");
+      startButton.textContent = "start";
+      createKeySequence();
+    }
+
+    function returnToStartScreen() {
+      stopBubbleSoundLoop();
+      clearStartFishMarks();
+      gameStarted = false;
+      isCompleting = false;
+      isRevealing = true;
+      activeKeys.clear();
+      sKeyImage.classList.remove("is-pressed");
+      fKeyImage.classList.remove("is-pressed");
+      keySequence = [];
+      sequenceProgress = 0;
+      keySequenceDisplay.replaceChildren();
+      fishCaughtCount = 0;
+      updateFishSwimSpeed();
+      fishCaughtCountDisplay.textContent = "0";
+      failureFishCountDisplay.textContent = "0";
+      startScreen.classList.remove("is-failed", "is-dismissed", "show-instructions");
+      document.body.classList.remove("game-started", "game-failed");
+      startButton.textContent = "start";
+    }
+
+    
+    startButton.addEventListener("click", () => {
+      stopBubbleSoundLoop();
+      if (gameStarted) return;
+      if (startScreen.classList.contains("is-failed")) {
+        startGame();
+        return;
+      }
+      startScreen.classList.add("show-instructions");
+    });
+
+    [startButton, continueButton].forEach(button => {
+      button.addEventListener("mouseenter", startBubbleSoundLoop);
+      button.addEventListener("mouseleave", stopBubbleSoundLoop);
+    });
+    continueButton.addEventListener("click", startGame);
+    restartButton.addEventListener("click", returnToStartScreen);
+
+    fishImage.addEventListener("animationend", event => {
+      if (event.animationName === "swim-across" && gameStarted) {
+        failSequence();
+      }
+    });
+
+    window.addEventListener("keydown", event => {
+      if (!gameStarted) return;
+      const key = event.key.toLowerCase();
+      if (activeKeys.has(key)) return;
+      activeKeys.add(key);
+      if (key === "s") {
+        sKeyImage.classList.add("is-pressed");
+        handleSequenceKey(key);
+      } else if (key === "f") {
+        fKeyImage.classList.add("is-pressed");
+        handleSequenceKey(key);
+      }
+    });
+
+    function addCursorFish(event, force = false) {
+      const distance = Math.hypot(event.clientX - lastTrailX, event.clientY - lastTrailY);
+      if (hasTrailPoint && distance < 28 && !force) return;
+
+      const trailFish = document.createElement("img");
+      trailFish.className = "cursor-fish";
+      trailFish.src = "fish.png";
+      trailFish.alt = "";
+      trailFish.setAttribute("aria-hidden", "true");
+      trailFish.style.left = `${event.clientX}px`;
+      trailFish.style.top = `${event.clientY}px`;
+      if (hasTrailPoint) {
+        const angle = Math.atan2(event.clientY - lastTrailY, event.clientX - lastTrailX) * 180 / Math.PI;
+        trailFish.style.setProperty("--angle", `${angle}deg`);
+      }
+      trailFish.addEventListener("animationend", () => trailFish.remove(), { once: true });
+      document.body.appendChild(trailFish);
+
+      lastTrailX = event.clientX;
+      lastTrailY = event.clientY;
+      hasTrailPoint = true;
+    }
+
+    function addStartFishMark(event) {
+      if (event.button !== 0 || startScreen.classList.contains("is-dismissed")) return;
+
+      const mark = document.createElement("img");
+      mark.className = "start-fish-mark";
+      mark.src = "fish.png";
+      mark.alt = "";
+      mark.setAttribute("aria-hidden", "true");
+      mark.style.left = `${event.clientX}px`;
+      mark.style.top = `${event.clientY}px`;
+      document.body.appendChild(mark);
+      startFishMarks.add(mark);
+    }
+
+    function clearStartFishMarks() {
+      startFishMarks.forEach(mark => mark.remove());
+      startFishMarks.clear();
+    }
+
+    window.addEventListener("pointermove", event => addCursorFish(event));
+    window.addEventListener("pointerdown", event => {
+      startThemeMusic();
+      addCursorFish(event, true);
+      addStartFishMark(event);
+    });
+    window.addEventListener("keydown", startThemeMusic);
+    startThemeMusic();
+
+    window.addEventListener("keyup", event => {
+      const key = event.key.toLowerCase();
+      activeKeys.delete(key);
+      if (key === "s") {
+        sKeyImage.classList.remove("is-pressed");
+      } else if (key === "f") {
+        fKeyImage.classList.remove("is-pressed");
+      }
+    });
+
+    window.addEventListener("blur", () => {
+      activeKeys.clear();
+      sKeyImage.classList.remove("is-pressed");
+      fKeyImage.classList.remove("is-pressed");
+    });
+  </script>
+</body>
+</html>
